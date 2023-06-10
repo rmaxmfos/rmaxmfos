@@ -7,15 +7,10 @@ import random
 import pickle
 from datetime import datetime
 from collections import Counter
-
 from tqdm import tqdm
 
 from env_mp_simple import MetaGamesLimitedtraj
 from rmax_1_batch_limitedtraj import RmaxAgentTraj, Memory
-
-def discretize(number, radius):
-    #[0,3,5,4,8] --> [0,3,6,3,9] for radius 3
-    return np.round(np.divide(number, radius)) * radius
 
 def Boltzmann(arr):
     #0.5 is just a temperature parameter, controls the spread of the softmax distribution
@@ -40,7 +35,7 @@ y = [0]*3
 mean = [0]*3
 convolve = [0]*3
 
-for i in range(2,3):
+for i in range(3):       # Running 3 lengths of limited trajectory: h=2, h=3 & h=4
     hist_step= i+2
 
     # creating environment
@@ -50,7 +45,7 @@ for i in range(2,3):
     memory = Memory()
     rmax = RmaxAgentTraj(R_max, meta_steps+1, meta_gamma, inner_gamma, epsilon, hist_step)
 
-    meta_epi = int(3* rmax.m *rmax.ns)
+    meta_epi = int(8* rmax.m *rmax.ns)       
 
     #reward tensor for plotting purposes [bs, episode, step, agents]
     plot_rew[i] = np.zeros((meta_epi, meta_steps, 2))
@@ -58,8 +53,7 @@ for i in range(2,3):
     plot_visit[i] = np.zeros((rmax.ns * rmax.na + 1, 2))    
 
     for episode in range(meta_epi): #for each meta-episode
-        #reset environment 
-        #initialise meta-state and meta-action randomly
+        #reset environment & initialise meta-state and meta-action randomly
         meta_s = env.reset()
         Q = rmax.Q
         
@@ -70,7 +64,6 @@ for i in range(2,3):
 
             #run inner game according to actions
             obs, reward, info, _ = env.step(our_action)
-
             #---------------------------------------END OF INNER GAME--------------------------------------
             #save reward, info for plotting              
             plot_rew[i][episode,step,0] = reward
@@ -91,9 +84,11 @@ for i in range(2,3):
 
             plot_visit[i][(rmax.nSA >= rmax.m).sum(), 0] += reward
             plot_visit[i][(rmax.nSA >= rmax.m).sum(), 1] += 1
+            
             #prepare meta_s for next step
             meta_s = new_meta_s
             
+    #---------------------------------------graph-plotting---------------------------------------#      
     plt.clf()
     y[i]= np.divide(plot_visit[i][:,0], plot_visit[i][:,1], out=np.zeros_like(plot_visit[i][:,0]), where=plot_visit[i][:,1]!=0)
     plt.plot(y[i], label= str(i+2) + " timesteps", lw=2)
@@ -125,9 +120,9 @@ for i in range(2,3):
         # A new file will be created
         pickle.dump(convolve, file)
 
+        
 #Visitation vs Reward curve
 plt.clf()
-
 plt.plot(y[0], label='2 timesteps', lw=2)
 plt.plot(y[1], label='3 timesteps',lw=2)
 plt.plot(y[2], label='4 timesteps', lw=2)
@@ -138,8 +133,6 @@ plt.legend()
 
 plt.savefig('visitation_all@eps' + str(epsilon) +'.png', bbox_inches='tight')
 
-
-# In[171]:
 #MA(metaepi/10)reward 
 plt.clf()
 
